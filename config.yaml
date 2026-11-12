@@ -40,7 +40,7 @@ universe:
   fixed: [AAPL, NVDA, MSFT]
 
   # 순위와 상관없이 항상 함께 감시할 종목 (예: VOO, QQQ)
-  extra: []
+  extra: [VOO, QQQ]
 
 # ---- 2. 실행 시간 -------------------------------------------
 # true 이면 미국 정규장(뉴욕시간 09:30~16:00, 평일)에만 검사
@@ -61,6 +61,8 @@ market_hours_only: true
 # op        : <  <=  >  >=  crosses_below(아래로 돌파)  crosses_above(위로 돌파)
 # value     : 숫자, 또는 다른 지표 (예: {indicator: sma, period: 200, timeframe: 1d})
 #
+# tickers   : (선택) 이 규칙을 특정 종목에만 적용. 예: tickers: [NVDA]
+#
 # 중복 방지: 조건을 만족하는 동안에는 한 번만 알림.
 #           조건에서 벗어났다가 다시 들어오면 다시 알림 (단, cooldown_hours 이내면 생략)
 
@@ -77,11 +79,22 @@ rules:
     cooldown_hours: 6
     memo: "VOO 분할매수 또는 해당 종목 저가매수 검토"
 
-  # ---- 아래는 예시입니다. enabled: true 로 바꾸면 작동합니다 ----
+  - id: rsi_nvda_35
+    name: "엔비디아 RSI 35 미만"
+    enabled: true
+    tickers: [NVDA]
+    conditions:
+      - indicator: rsi
+        timeframe: 1h
+        period: 14
+        op: "<"
+        value: 35
+    cooldown_hours: 6
+    memo: "엔비디아 저가매수 검토"
 
   - id: big_drop_day
     name: "하루 -5% 급락"
-    enabled: false
+    enabled: true
     conditions:
       - indicator: change_pct
         timeframe: 1d
@@ -89,6 +102,8 @@ rules:
         value: -5
     cooldown_hours: 12
     memo: "급락 원인(뉴스) 확인"
+
+  # ---- 아래는 예시입니다. enabled: true 로 바꾸면 작동합니다 ----
 
   - id: rsi_oversold_and_below_200ma
     name: "RSI 과매도 + 200일선 아래"

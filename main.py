@@ -84,13 +84,23 @@ def main() -> int:
     log.info("감시 종목 %d개: %s", len(tickers), ", ".join(tickers))
 
     rules = [r for r in cfg.get("rules", []) if r.get("enabled", True)]
+    # 규칙에 tickers 로 지정한 종목이 감시 목록에 없으면 추가
+    for r in rules:
+        for t in r.get("tickers", []):
+            if t not in tickers:
+                universe.append((t, None))
+                tickers.append(t)
+
     md = MarketData()
     for tf in timeframes_used(rules):
         md.prefetch(tickers, tf)
 
     alerts = 0
     for rule in rules:
+        only = rule.get("tickers")
         for ticker, rank in universe:
+            if only and ticker not in only:
+                continue
             res = evaluate_rule(rule, ticker, md)
             mark = "✅" if res.matched else ("⚠️" if res.error else "  ")
             print(f"{mark} [{rule['id']}] {ticker:6} " + (" | ".join(res.details) or "") +
