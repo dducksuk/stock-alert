@@ -11,7 +11,11 @@ on:
         description: "실행 모드"
         type: choice
         default: test-telegram
-        options: [test-telegram, dry-run, force]
+        options: [test-telegram, dry-run, force, demo]
+      demo:
+        description: "demo 모드용 가상 값 (티커:RSI)"
+        type: string
+        default: "SPCX:12"
 
 permissions:
   contents: write           # state.json 저장(커밋)용
@@ -39,8 +43,10 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           MODE: ${{ github.event.inputs.mode }}
+          DEMO: ${{ github.event.inputs.demo }}
         run: |
           case "$MODE" in
+            demo)          python main.py --demo "$DEMO" ;;
             test-telegram) python main.py --test-telegram ;;
             dry-run)       python main.py --dry-run ;;
             force)         python main.py --force ;;
