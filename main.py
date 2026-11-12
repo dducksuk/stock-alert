@@ -63,9 +63,23 @@ def main() -> int:
     ap.add_argument("--force", action="store_true", help="장 시간이 아니어도 실행")
     ap.add_argument("--refresh-universe", action="store_true", help="시총 순위 즉시 재계산")
     ap.add_argument("--test-telegram", action="store_true")
+    ap.add_argument("--demo", metavar="TICKER:RSI", help="가상 RSI 값으로 알림 모양 미리보기 (예: SPCX:12)")
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+
+    if args.demo:
+        ticker, value = args.demo.split(":")
+        cfg = yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
+        rule = next(r for r in cfg["rules"] if r["id"] == "rsi_oversold_1h")
+        cond = rule["conditions"][0]
+        tickers = State(args.state).data.get("universe", {}).get("tickers", [])
+        rank = tickers.index(ticker) + 1 if ticker in tickers else None
+        detail = f"RSI({cond['period']}, {cond['timeframe']}) {float(value):,.2f} {cond['op']} {float(cond['value']):,.2f}"
+        text = "🧪 [테스트 알림 - 실제 신호 아님]\n\n" + format_alert(rule, ticker.upper(), [detail], rank)
+        ok = send_telegram(text)
+        print(text)
+        return 0 if ok else 1
 
     if args.test_telegram:
         ok = send_telegram("✅ 주식 알림 봇 연결 테스트 성공!")
