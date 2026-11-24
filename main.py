@@ -110,6 +110,7 @@ def main() -> int:
     ap.add_argument("--refresh-universe", action="store_true", help="시총 순위 즉시 재계산")
     ap.add_argument("--test-telegram", action="store_true")
     ap.add_argument("--targets", action="store_true", help="수동 목표가(매수/매도) 알림만 검사")
+    ap.add_argument("--demo-targets", action="store_true", help="목표가 알림 모양 미리보기 (테스트 메시지 발송)")
     ap.add_argument("--demo", metavar="TICKER:RSI", help="가상 RSI 값으로 알림 모양 미리보기 (예: SPCX:12)")
     args = ap.parse_args()
 
@@ -126,6 +127,13 @@ def main() -> int:
         text = "🧪 [테스트 알림 - 실제 신호 아님]\n\n" + format_alert(rule, ticker.upper(), [detail], rank)
         ok = send_telegram(text)
         print(text)
+        return 0 if ok else 1
+
+    if args.demo_targets:
+        from alerts.targets import Signal, format_signal
+        demos = [Signal("NVDA", "엔비디아", "buy", 119.80, 120.0), Signal("NVDA", "엔비디아", "sell", 151.10, 150.0)]
+        ok = all(send_telegram("🧪 [테스트 알림 - 실제 신호 아님]\n\n" + format_signal(d)) for d in demos)
+        print("발송 성공" if ok else "발송 실패")
         return 0 if ok else 1
 
     if args.targets:

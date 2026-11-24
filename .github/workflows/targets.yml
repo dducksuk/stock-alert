@@ -12,7 +12,7 @@ on:
         description: "실행 모드"
         type: choice
         default: force
-        options: [force, dry-run]
+        options: [force, dry-run, demo]
 
 permissions:
   contents: write
@@ -44,6 +44,7 @@ jobs:
           case "$MODE" in
             force)   python main.py --targets --force ;;
             dry-run) python main.py --targets --dry-run ;;
+            demo)    python main.py --demo-targets ;;
             *)       python main.py --targets ;;
           esac
 
