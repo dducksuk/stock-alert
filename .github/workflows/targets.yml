@@ -1,0 +1,61 @@
+name: price-targets
+
+# 앱에서 입력한 매수/매도 목표가를 정규장 동안 주기적으로 검사합니다.
+on:
+  schedule:
+    # 평일 UTC 13~21시 매 5분. 정규장 여부는 main.py 가 뉴욕 시간으로 다시 확인합니다.
+    # (GitHub 사정에 따라 실제 실행은 몇 분씩 늦어질 수 있습니다)
+    - cron: "*/5 13-21 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "실행 모드"
+        type: choice
+        default: force
+        options: [force, dry-run]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: price-targets
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Check price targets
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MODE: ${{ github.event.inputs.mode }}
+        run: |
+          case "$MODE" in
+            force)   python main.py --targets --force ;;
+            dry-run) python main.py --targets --dry-run ;;
+            *)       python main.py --targets ;;
+          esac
+
+      - name: Save state
+        run: |
+          for f in target_state.json prices.json; do if [ -f "$f" ]; then git add "$f"; fi; done
+          if ! git diff --cached --quiet; then
+            git config user.name "stock-alert-bot"
+            git config user.email "actions@users.noreply.github.com"
+            git commit -m "update target state [skip ci]"
+            for i in 1 2 3; do
+              git pull --rebase && git push && break
+              sleep $((i * 5))
+            done
+          fi

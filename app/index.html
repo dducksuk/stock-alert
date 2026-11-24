@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>목표가 알림</title>
+<meta name="theme-color" content="#ffd84a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="목표가 알림">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+/* VOICE  차분한 증권 앱. 숫자가 주인공.
+   IDEA   호가창 옆의 '가격 사다리' — 매수가와 매도가 사이 어디쯤 있는지
+   PICTURE 각 종목 카드의 사다리 막대와 현재가 표시
+   COLOUR 흰 바탕, 먹색 글자, 노랑 슬랩(현재가), 매수 빨강 · 매도 파랑(국내 증권 관례)
+   LAYOUT 한 열. 검색 → 목록. 종목을 누르면 아래에서 편집 시트가 올라옴 */
+:root{color-scheme:light dark;
+  --bg:light-dark(#ffffff,#101418);--ink:light-dark(#101418,#eef1f4);--sub:light-dark(#5b6470,#9aa4b0);
+  --line:light-dark(#e3e6ea,#262d35);--card:light-dark(#ffffff,#161b21);--soft:light-dark(#f4f5f7,#1b2128);
+  --yel:#ffd84a;--yel-ink:#101418;--buy:light-dark(#d62c3a,#ff5c69);--sell:light-dark(#2563c9,#5c97ff);
+  --buy-bg:light-dark(#fdecee,#3a1a1e);--sell-bg:light-dark(#e9f0fc,#17253d)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Manrope,"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;overflow-x:clip;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) calc(env(safe-area-inset-bottom) + 24px) env(safe-area-inset-left)}
+button,input{font:inherit;color:inherit}
+.wrap{max-width:640px;margin:0 auto;padding:0 16px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 0 6px}
+h1{font-size:28px;line-height:1.1;margin:0;font-weight:800;letter-spacing:-.01em}
+.stamp{font-size:13px;color:var(--sub);margin:0 0 14px}
+.btn{min-height:44px;padding:0 16px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-weight:700;cursor:pointer}
+.btn:focus-visible,input:focus-visible,.card:focus-visible{outline:3px solid var(--yel);outline-offset:2px}
+.btn.pri{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.del{color:var(--buy);border-color:transparent;background:transparent}
+.btn[disabled]{opacity:.45;cursor:default}
+.search{position:relative;margin-bottom:18px}
+.search input{width:100%;height:52px;border-radius:14px;border:1.5px solid var(--line);background:var(--soft);padding:0 16px;font-size:17px}
+.results{list-style:none;margin:6px 0 0;padding:6px;border:1px solid var(--line);border-radius:14px;background:var(--card);box-shadow:0 12px 30px rgb(0 0 0/.12)}
+.results:empty{display:none}
+.results li button{display:flex;width:100%;justify-content:space-between;gap:12px;align-items:center;min-height:48px;padding:6px 10px;border:0;background:none;border-radius:10px;text-align:left;cursor:pointer}
+.results li button:hover,.results li button:focus-visible{background:var(--soft)}
+.results small{color:var(--sub);font-size:13px}
+.list{display:grid;gap:12px}
+.card{display:block;width:100%;text-align:left;border:1px solid var(--line);border-radius:16px;background:var(--card);padding:16px;cursor:pointer}
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.nm{font-weight:800;font-size:18px}.tk{color:var(--sub);font-size:13px;font-weight:700;margin-left:6px}
+.px{font-weight:800;font-size:18px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.chg{font-size:13px;font-weight:700;white-space:nowrap}.up{color:var(--buy)}.dn{color:var(--sell)}
+.ladder{position:relative;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--buy-bg),var(--soft) 50%,var(--sell-bg));margin:18px 7px 10px}
+.ladder i{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--yel);border:2.5px solid var(--ink)}
+.ladder b{position:absolute;top:-3px;width:2px;height:14px;background:currentColor}
+.lv{display:flex;justify-content:space-between;gap:8px;font-size:14px;flex-wrap:wrap}
+.lv span{white-space:nowrap;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;font-size:12px;font-weight:800;padding:1px 7px;border-radius:6px;margin-right:6px}
+.tag.b{background:var(--buy-bg);color:var(--buy)}.tag.s{background:var(--sell-bg);color:var(--sell)}
+.hit{font-weight:800}
+.empty{border:1.5px dashed var(--line);border-radius:16px;padding:28px 18px;text-align:center;color:var(--sub)}
+.empty b{display:block;color:var(--ink);font-size:18px;margin-bottom:4px}
+/* 편집 시트 */
+.scrim{position:fixed;inset:0;background:rgb(0 0 0/.35);display:none;align-items:flex-end;justify-content:center;z-index:10}
+.scrim.on{display:flex}
+.sheet{width:100%;max-width:640px;max-height:92vh;overflow:auto;background:var(--bg);border-radius:22px 22px 0 0;
+  padding:18px 18px calc(18px + env(safe-area-inset-bottom));animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(40px);opacity:.4}}
+@media (prefers-reduced-motion:reduce){.sheet{animation:none}}
+.slab{background:var(--yel);color:var(--yel-ink);border-radius:16px;padding:16px;margin:12px 0 16px}
+.slab .big{font-size:clamp(34px,10vw,46px);font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums}
+.slab small{font-size:13px;font-weight:700;opacity:.75}
+label{display:block;font-weight:800;font-size:15px;margin:14px 0 6px}
+.f{display:flex;align-items:center;gap:8px;height:56px;border:1.5px solid var(--line);border-radius:14px;padding:0 14px;background:var(--soft)}
+.f span{font-weight:800;color:var(--sub)}
+.f input{flex:1;border:0;background:none;font-size:22px;font-weight:800;outline:none;font-variant-numeric:tabular-nums;height:100%}
+.f.b{border-color:color-mix(in srgb,var(--buy) 45%,var(--line))}.f.s{border-color:color-mix(in srgb,var(--sell) 45%,var(--line))}
+.hint{font-size:13px;color:var(--sub);min-height:20px;margin-top:4px}
+.warn{background:var(--soft);border-radius:12px;padding:10px 12px;font-size:14px;margin-top:12px}
+.warn:empty{display:none}
+.acts{display:flex;gap:8px;margin-top:18px}.acts .pri{flex:1}
+.set input{width:100%;height:48px;border-radius:12px;border:1.5px solid var(--line);background:var(--soft);padding:0 12px;font-size:16px}
+.set ol{padding-left:20px;font-size:14px;color:var(--sub)}.set li{margin:4px 0}
+.set a{color:var(--sell)}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);
+  padding:12px 18px;border-radius:12px;font-weight:700;font-size:15px;z-index:20;display:none;max-width:90vw;text-align:center}
+.toast.on{display:block}
+.note{font-size:13px;color:var(--sub);margin:22px 0 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>목표가 알림</h1>
+    <button class="btn" id="openSet" type="button">설정</button>
+  </header>
+  <p class="stamp" id="stamp">불러오는 중…</p>
+
+  <div class="search">
+    <input id="q" type="search" placeholder="종목 검색 (예: 엔비디아, NVDA)" autocomplete="off" enterkeyhint="search" aria-label="종목 검색">
+    <ul class="results" id="results"></ul>
+  </div>
+
+  <div class="list" id="list"></div>
+  <p class="note">가격이 목표가에 닿으면 텔레그램으로 알림이 와요. 미국 정규장 시간에 약 5~15분 간격으로 확인합니다.</p>
+</div>
+
+<div class="scrim" id="edScrim">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="edName">
+    <div class="row"><div><span class="nm" id="edName"></span><span class="tk" id="edTk"></span></div>
+      <button class="btn" type="button" data-close>닫기</button></div>
+    <div class="slab"><small>현재가</small><div class="big" id="edPx">-</div><small id="edChg"></small></div>
+    <label for="buyIn" style="color:var(--buy)">매수 목표가 — 이 가격 이하로 내려오면</label>
+    <div class="f b"><span>$</span><input id="buyIn" type="text" inputmode="decimal" placeholder="비워두면 알림 안 함"></div>
+    <div class="hint" id="buyHint"></div>
+    <label for="sellIn" style="color:var(--sell)">매도 목표가 — 이 가격 이상 올라가면</label>
+    <div class="f s"><span>$</span><input id="sellIn" type="text" inputmode="decimal" placeholder="비워두면 알림 안 함"></div>
+    <div class="hint" id="sellHint"></div>
+    <div class="warn" id="edWarn"></div>
+    <div class="acts">
+      <button class="btn del" type="button" id="delBtn">삭제</button>
+      <button class="btn pri" type="button" id="saveBtn">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="setScrim">
+  <div class="sheet set" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+    <div class="row"><span class="nm" id="setTitle">설정</span><button class="btn" type="button" data-close>닫기</button></div>
+    <label for="tokIn">GitHub 토큰 (필수)</label>
+    <input id="tokIn" type="password" autocomplete="off" placeholder="github_pat_…">
+    <ol>
+      <li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub 토큰 만들기 페이지</a> 열기</li>
+      <li>Repository access → <b>Only select repositories</b> → <b>stock-alert</b> 선택</li>
+      <li>Permissions → Repository → <b>Contents: Read and write</b></li>
+      <li>Generate token → 복사해서 위 칸에 붙여넣기</li>
+    </ol>
+    <label for="repoIn">저장소</label>
+    <input id="repoIn" type="text" autocomplete="off" autocapitalize="off" placeholder="dducksuk/stock-alert">
+    <label for="fhIn">Finnhub API 키 (선택 — 실시간 현재가 · 종목 검색)</label>
+    <input id="fhIn" type="password" autocomplete="off" placeholder="없으면 봇이 마지막으로 확인한 가격을 보여줘요">
+    <ol><li><a href="https://finnhub.io/register" target="_blank" rel="noopener">finnhub.io</a>에서 무료 가입 후 대시보드의 API key 복사</li></ol>
+    <p class="hint">토큰과 키는 이 기기에만 저장되고 다른 곳으로 보내지지 않아요.</p>
+    <div class="acts"><button class="btn pri" type="button" id="setSave">저장하고 연결 확인</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+{
+const ALIASES = [
+  ["NVDA","엔비디아","엔비디아 nvidia"],["AAPL","애플","apple"],["MSFT","마이크로소프트","마소 ms microsoft"],
+  ["GOOGL","알파벳(구글)","구글 google alphabet"],["AMZN","아마존","amazon"],["META","메타","페이스북 meta facebook"],
+  ["AVGO","브로드컴","broadcom"],["TSLA","테슬라","tesla"],["WMT","월마트","walmart"],["AMD","AMD","에이엠디"],
+  ["MU","마이크론","micron"],["COST","코스트코","costco"],["NFLX","넷플릭스","netflix"],["ASML","ASML","에이에스엠엘"],
+  ["PLTR","팔란티어","palantir"],["CSCO","시스코","cisco"],["INTC","인텔","intel"],["AMAT","어플라이드 머티리얼즈","applied materials"],
+  ["LRCX","램리서치","lam research"],["KLAC","KLA","케이엘에이"],["TMUS","T-모바일","티모바일"],["QCOM","퀄컴","qualcomm"],
+  ["ARM","ARM","암 arm holdings"],["TSM","TSMC","대만 반도체"],["ORCL","오라클","oracle"],["CRM","세일즈포스","salesforce"],
+  ["ADBE","어도비","adobe"],["IBM","IBM","아이비엠"],["UBER","우버","uber"],["SHOP","쇼피파이","shopify"],
+  ["COIN","코인베이스","coinbase"],["MSTR","마이크로스트래티지","스트래티지 strategy"],["SMCI","슈퍼마이크로","supermicro"],
+  ["IONQ","아이온큐","ionq"],["SOFI","소파이","sofi"],["RKLB","로켓랩","rocket lab"],["HOOD","로빈후드","robinhood"],
+  ["JPM","JP모건","제이피모건"],["BRK-B","버크셔 해서웨이","버크셔 berkshire"],["V","비자","visa"],["MA","마스터카드","mastercard"],
+  ["KO","코카콜라","coca cola"],["PEP","펩시코","pepsi"],["MCD","맥도날드","mcdonalds"],["NKE","나이키","nike"],
+  ["DIS","디즈니","disney"],["SBUX","스타벅스","starbucks"],["LLY","일라이릴리","릴리 eli lilly"],["NVO","노보노디스크","novo nordisk"],
+  ["JNJ","존슨앤존슨","johnson"],["PFE","화이자","pfizer"],["XOM","엑슨모빌","exxon"],["O","리얼티인컴","realty income"],
+  ["VOO","VOO (S&P500 ETF)","s&p500 에스앤피"],["SPY","SPY (S&P500 ETF)","s&p500 에스앤피"],["QQQ","QQQ (나스닥100 ETF)","나스닥 nasdaq"],
+  ["QQQM","QQQM (나스닥100 ETF)","나스닥"],["SCHD","SCHD (배당 ETF)","슈드 배당"],["SOXX","SOXX (반도체 ETF)","반도체"],
+  ["SOXL","SOXL (반도체 3배)","속슬 반도체 레버리지"],["TQQQ","TQQQ (나스닥 3배)","티큐 레버리지"],["JEPI","JEPI","제피 배당"],
+  ["TLT","TLT (미국채 20년+)","채권 국채"],["GLD","GLD (금 ETF)","금 gold"],["SPCX","스페이스X","spacex"]
+];
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = n => n == null ? "-" : "$" + Number(n).toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
+const pct = n => (n > 0 ? "+" : "") + n.toFixed(2) + "%";
+const store = {
+  get(k, d = "") { try { return localStorage.getItem("pt_" + k) ?? d } catch { return d } },
+  set(k, v) { try { localStorage.setItem("pt_" + k, v) } catch {} }
+};
+const cfg = () => ({token: store.get("token"), repo: store.get("repo", "dducksuk/stock-alert"), fh: store.get("fh")});
+
+let targets = {}, sha = null, botPrices = {}, botTime = null, live = {}, editing = null;
+
+function toast(msg, ms = 2400) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("on");
+  clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("on"), ms);
+}
+
+/* ---------- GitHub ---------- */
+async function gh(path, opts = {}) {
+  const {token, repo} = cfg();
+  const r = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
+    ...opts, cache: "no-store",
+    headers: {Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", ...(opts.headers || {})}
+  });
+  return r;
+}
+const b64dec = s => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\n/g, "")), c => c.charCodeAt(0)));
+const b64enc = s => { let b = ""; new TextEncoder().encode(s).forEach(x => b += String.fromCharCode(x)); return btoa(b) };
+
+async function readJson(path) {
+  const r = await gh(path + "?t=" + Date.now());
+  if (r.status === 404) return {data: null, sha: null};
+  if (r.status === 401 || r.status === 403) throw new Error("auth");
+  if (!r.ok) throw new Error("http " + r.status);
+  const j = await r.json();
+  return {data: JSON.parse(b64dec(j.content) || "null"), sha: j.sha};
+}
+
+async function loadAll() {
+  if (!cfg().token) { $("stamp").textContent = "먼저 설정에서 GitHub 토큰을 넣어주세요."; render(); openSheet("setScrim"); return; }
+  try {
+    const [t, p] = await Promise.all([readJson("price_targets.json"), readJson("prices.json").catch(() => ({data: null}))]);
+    targets = t.data || {}; sha = t.sha;
+    botPrices = p.data?.prices || {}; botTime = p.data?.updated || null;
+    $("stamp").textContent = botTime ? "봇이 확인한 시세: " + new Date(botTime).toLocaleString("ko-KR", {month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit"}) : "아직 봇이 확인한 시세가 없어요";
+    render(); refreshLive(Object.keys(targets));
+  } catch (e) {
+    $("stamp").textContent = e.message === "auth" ? "토큰이 맞지 않거나 권한이 없어요. 설정을 확인해 주세요." : "불러오기 실패 — 인터넷 연결을 확인해 주세요.";
+    render();
+  }
+}
+
+/* mutate: targets 객체를 바꾸는 함수. sha 충돌 시 최신본을 다시 받아 한 번 더 시도 */
+async function commit(mutate, message) {
+  for (let i = 0; i < 2; i++) {
+    const next = structuredClone(targets); mutate(next);
+    const body = {message, content: b64enc(JSON.stringify(next, null, 2) + "\n")};
+    if (sha) body.sha = sha;
+    const r = await gh("price_targets.json", {method: "PUT", body: JSON.stringify(body)});
+    if (r.ok) { const j = await r.json(); sha = j.content.sha; targets = next; render(); return true; }
+    if ((r.status === 409 || r.status === 422) && i === 0) { const t = await readJson("price_targets.json"); targets = t.data || {}; sha = t.sha; continue; }
+    if (r.status === 401 || r.status === 403 || r.status === 404) throw new Error("토큰 권한(Contents: Read and write)을 확인해 주세요.");
+    throw new Error("저장 실패 (" + r.status + ")");
+  }
+}
+
+/* ---------- 시세 ---------- */
+function priceOf(t) { return live[t] || botPrices[t] || null }
+async function quote(t) {
+  const {fh} = cfg(); if (!fh) return null;
+  try {
+    const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(t.replace("-", "."))}&token=${encodeURIComponent(fh)}`);
+    if (!r.ok) return null; const j = await r.json();
+    if (!j || !j.c) return null;
+    return live[t] = {price: j.c, change_pct: j.dp ?? null};
+  } catch { return null }
+}
+async function refreshLive(list) {
+  if (!cfg().fh || !list.length) return;
+  await Promise.all(list.slice(0, 25).map(quote)); render();
+}
+
+/* ---------- 검색 ---------- */
+let qTimer;
+$("q").addEventListener("input", () => { clearTimeout(qTimer); qTimer = setTimeout(search, 180) });
+$("q").addEventListener("keydown", e => { if (e.key === "Enter") { const b = $("results").querySelector("button"); if (b) b.click() } });
+async function search() {
+  const raw = $("q").value.trim(), q = raw.toLowerCase().replace(/\s+/g, "");
+  if (!q) { $("results").innerHTML = ""; return }
+  const hits = ALIASES.filter(([t, n, a]) => t.toLowerCase().startsWith(q) || (n + a).toLowerCase().replace(/\s+/g, "").includes(q)).slice(0, 8)
+    .map(([t, n]) => ({t, n}));
+  const up = raw.toUpperCase();
+  if (/^[A-Z][A-Z0-9.\-]{0,9}$/.test(up) && !hits.some(h => h.t === up)) hits.push({t: up, n: "티커로 직접 추가", direct: true});
+  draw(hits);
+  const {fh} = cfg();
+  if (fh && q.length >= 2) {
+    try {
+      const r = await fetch(`https://finnhub.io/api/v1/search?q=${encodeURIComponent(raw)}&exchange=US&token=${encodeURIComponent(fh)}`);
+      const j = r.ok ? await r.json() : null;
+      if ($("q").value.trim() !== raw || !j?.result) return;
+      const more = j.result.filter(x => x.type === "Common Stock" || x.type === "ETP" || x.type === "ADR")
+        .filter(x => !hits.some(h => h.t === x.symbol)).slice(0, 5).map(x => ({t: x.symbol, n: x.description}));
+      draw(hits.filter(h => !h.direct || !more.some(m => m.t === h.t)).concat(more));
+    } catch {}
+  }
+}
+function draw(hits) {
+  $("results").innerHTML = hits.map(h => `<li><button type="button" data-t="${esc(h.t)}" data-n="${esc(h.direct ? h.t : h.n)}">
+    <span><b>${esc(h.direct ? h.t : h.n)}</b> <small>${esc(h.direct ? h.n : h.t)}</small></span>
+    <small>${targets[h.t] ? "설정됨" : ""}</small></button></li>`).join("");
+}
+$("results").addEventListener("click", e => {
+  const b = e.target.closest("button[data-t]"); if (!b) return;
+  $("q").value = ""; $("results").innerHTML = "";
+  openEditor(b.dataset.t, targets[b.dataset.t]?.name || b.dataset.n);
+});
+
+/* ---------- 목록 ---------- */
+function render() {
+  const keys = Object.keys(targets).sort();
+  if (!keys.length) {
+    $("list").innerHTML = `<div class="empty"><b>아직 설정한 목표가가 없어요</b>위에서 종목을 검색해서 매수가·매도가를 넣어보세요.</div>`;
+    return;
+  }
+  $("list").innerHTML = keys.map(t => {
+    const g = targets[t], p = priceOf(t), px = p?.price;
+    const ch = p?.change_pct;
+    let ladder = "";
+    if (g.buy && g.sell && px) {
+      const lo = Math.min(g.buy, px) , hi = Math.max(g.sell, px), span = hi - lo || 1;
+      const at = v => ((v - lo) / span * 100).toFixed(1) + "%";
+      ladder = `<div class="ladder" aria-hidden="true"><b style="left:${at(g.buy)};color:var(--buy)"></b><b style="left:${at(g.sell)};color:var(--sell)"></b><i style="left:${at(px)}"></i></div>`;
+    }
+    const dist = (v, side) => {
+      if (!px) return "";
+      const d = (v / px - 1) * 100, hit = side === "buy" ? px <= v : px >= v;
+      return hit ? ` <span class="hit">· 도달</span>` : ` <small>(${pct(d)})</small>`;
+    };
+    return `<button type="button" class="card" data-t="${esc(t)}">
+      <div class="row"><div><span class="nm">${esc(g.name || t)}</span><span class="tk">${esc(t)}</span></div>
+        <div style="text-align:right"><div class="px">${money(px)}</div>${ch == null ? "" : `<div class="chg ${ch >= 0 ? "up" : "dn"}">${pct(ch)}</div>`}</div></div>
+      ${ladder || '<div style="height:12px"></div>'}
+      <div class="lv"><span>${g.buy ? `<span class="tag b">매수</span>${money(g.buy)}${dist(g.buy, "buy")}` : '<span class="tag b">매수</span>-'}</span>
+        <span>${g.sell ? `<span class="tag s">매도</span>${money(g.sell)}${dist(g.sell, "sell")}` : '<span class="tag s">매도</span>-'}</span></div>
+    </button>`;
+  }).join("");
+}
+$("list").addEventListener("click", e => { const c = e.target.closest(".card"); if (c) openEditor(c.dataset.t, targets[c.dataset.t]?.name) });
+
+/* ---------- 편집 ---------- */
+function openSheet(id) { $(id).classList.add("on") }
+function closeSheet(id) { $(id).classList.remove("on") }
+document.querySelectorAll(".scrim").forEach(s => {
+  s.addEventListener("click", e => { if (e.target === s || e.target.closest("[data-close]")) closeSheet(s.id) });
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") document.querySelectorAll(".scrim.on").forEach(s => closeSheet(s.id)) });
+
+async function openEditor(t, name) {
+  editing = {t, name: name || t};
+  const g = targets[t] || {};
+  $("edName").textContent = editing.name; $("edTk").textContent = t;
+  $("buyIn").value = g.buy ?? ""; $("sellIn").value = g.sell ?? "";
+  $("delBtn").style.visibility = targets[t] ? "visible" : "hidden";
+  showPx(); openSheet("edScrim");
+  setTimeout(() => $(g.buy ? "sellIn" : "buyIn").focus(), 250);
+  if (await quote(t)) { if (editing?.t === t) showPx() }
+}
+function showPx() {
+  const p = priceOf(editing.t);
+  $("edPx").textContent = p ? money(p.price) : "가격 정보 없음";
+  $("edChg").textContent = p?.change_pct == null ? (p ? "" : "저장하면 봇이 다음 확인 때 가격을 가져와요") : "전일 대비 " + pct(p.change_pct);
+  check();
+}
+const num = id => { const v = $(id).value.replace(/[,$\s]/g, ""); if (!v) return null; const n = Number(v); return n > 0 ? n : NaN };
+function check() {
+  const buy = num("buyIn"), sell = num("sellIn"), px = priceOf(editing.t)?.price;
+  const hint = (v, side) => v == null ? "" : isNaN(v) ? "숫자로 입력해 주세요" : px ? `현재가 대비 ${pct((v / px - 1) * 100)}` : "";
+  $("buyHint").textContent = hint(buy, "buy"); $("sellHint").textContent = hint(sell, "sell");
+  const w = [];
+  if (buy && sell && buy >= sell) w.push("매수가는 매도가보다 낮아야 해요.");
+  if (px && buy && buy >= px) w.push("매수가가 이미 현재가 이상이에요. 다음 확인 때 바로 매수 알림이 가요.");
+  if (px && sell && sell <= px) w.push("매도가가 이미 현재가 이하예요. 다음 확인 때 바로 매도 알림이 가요.");
+  $("edWarn").textContent = w.join(" ");
+  const bad = isNaN(buy) || isNaN(sell) || (buy == null && sell == null) || (buy && sell && buy >= sell);
+  $("saveBtn").disabled = bad;
+}
+$("buyIn").addEventListener("input", check); $("sellIn").addEventListener("input", check);
+["buyIn", "sellIn"].forEach(id => $(id).addEventListener("keydown", e => { if (e.key === "Enter" && !$("saveBtn").disabled) $("saveBtn").click() }));
+
+$("saveBtn").addEventListener("click", async () => {
+  const {t, name} = editing, buy = num("buyIn"), sell = num("sellIn");
+  $("saveBtn").disabled = true; $("saveBtn").textContent = "저장 중…";
+  try {
+    const parts = [buy && `매수 ${buy}`, sell && `매도 ${sell}`].filter(Boolean).join(" / ");
+    await commit(d => { d[t] = {name, buy, sell, updated: new Date().toISOString()} }, `목표가 설정: ${t} ${parts}`);
+    closeSheet("edScrim"); toast(`${name} 저장됨 — 도달하면 텔레그램으로 알려드려요`);
+  } catch (e) { toast(e.message, 4000) }
+  $("saveBtn").textContent = "저장"; check();
+});
+$("delBtn").addEventListener("click", async () => {
+  const b = $("delBtn");
+  if (b.dataset.armed !== "1") { b.dataset.armed = "1"; b.textContent = "한 번 더 누르면 삭제"; setTimeout(() => { b.dataset.armed = ""; b.textContent = "삭제" }, 3000); return }
+  b.dataset.armed = ""; b.textContent = "삭제";
+  const {t, name} = editing;
+  try { await commit(d => { delete d[t] }, `목표가 삭제: ${t}`); closeSheet("edScrim"); toast(`${name} 목표가를 지웠어요`) }
+  catch (e) { toast(e.message, 4000) }
+});
+
+/* ---------- 설정 ---------- */
+$("openSet").addEventListener("click", () => {
+  const c = cfg(); $("tokIn").value = c.token; $("repoIn").value = c.repo; $("fhIn").value = c.fh; openSheet("setScrim");
+});
+$("setSave").addEventListener("click", async () => {
+  store.set("token", $("tokIn").value.trim()); store.set("repo", $("repoIn").value.trim() || "dducksuk/stock-alert"); store.set("fh", $("fhIn").value.trim());
+  live = {}; closeSheet("setScrim"); await loadAll();
+  if (!$("stamp").textContent.includes("토큰")) toast("연결됐어요");
+});
+
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && cfg().token) loadAll() });
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+loadAll();
+}
+</script>
+</body>
+</html>

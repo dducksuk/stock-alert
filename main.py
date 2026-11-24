@@ -4,6 +4,7 @@
   python main.py               # 실제 실행 (조건 만족 시 텔레그램 발송)
   python main.py --dry-run     # 발송 없이 결과만 출력 (장 시간 무시)
   python main.py --test-telegram   # 텔레그램 연결 테스트 메시지 발송
+  python main.py --targets     # 수동 목표가(매수/매도) 알림만 검사
 """
 from __future__ import annotations
 
@@ -55,6 +56,51 @@ def resolve_universe(cfg: dict, state: State, refresh: bool) -> list[tuple[str, 
     return tickers
 
 
+def run_targets(dry_run: bool, force: bool) -> int:
+    """price_targets.json 의 매수/매도 목표가 도달 여부를 검사."""
+    from alerts import targets as tg
+
+    now = datetime.now(timezone.utc)
+    if not (force or dry_run) and not market_open(now):
+        log.info("미국 정규장 시간이 아니라 종료합니다. (뉴욕 %s)", now.astimezone(NY).strftime("%a %H:%M"))
+        return 0
+
+    targets = tg.normalize_targets(tg.load_json(ROOT / "price_targets.json", {}))
+    if not targets:
+        log.info("설정된 목표가가 없습니다.")
+        return 0
+
+    tstate = tg.load_json(ROOT / "target_state.json", {})
+    prices = tg.fetch_prices(sorted(targets))
+    signals = tg.evaluate(targets, prices, tstate)
+
+    for t, tgt in targets.items():
+        p = prices.get(t)
+        price_txt = f"{p['price']:,.2f}" if p else "-"
+        print(f"  {t:6} 현재가 {price_txt:>10}  매수 {tgt['buy'] or '-'}  매도 {tgt['sell'] or '-'}")
+
+    missing = sorted(t for t in targets if t not in prices)
+    sent = 0
+    if not dry_run:
+        for sig in signals:
+            if send_telegram(tg.format_signal(sig)):
+                sent += 1
+        # 시세를 못 찾은 종목은 한 번만 안내
+        notified = set(tstate.get("_missing", []))
+        new_missing = [t for t in missing if t not in notified]
+        if new_missing:
+            send_telegram(tg.format_missing(new_missing))
+        tstate["_missing"] = missing
+        tg.save_json(ROOT / "target_state.json", tstate)
+        # 웹앱에 보여줄 최신 시세
+        tg.save_json(ROOT / "prices.json", {"updated": now.isoformat(), "prices": prices})
+    else:
+        for sig in signals:
+            print(tg.format_signal(sig))
+    log.info("목표가 검사 완료 - 신호 %d건, 발송 %d건", len(signals), sent)
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default=str(ROOT / "config.yaml"))
@@ -63,6 +109,7 @@ def main() -> int:
     ap.add_argument("--force", action="store_true", help="장 시간이 아니어도 실행")
     ap.add_argument("--refresh-universe", action="store_true", help="시총 순위 즉시 재계산")
     ap.add_argument("--test-telegram", action="store_true")
+    ap.add_argument("--targets", action="store_true", help="수동 목표가(매수/매도) 알림만 검사")
     ap.add_argument("--demo", metavar="TICKER:RSI", help="가상 RSI 값으로 알림 모양 미리보기 (예: SPCX:12)")
     args = ap.parse_args()
 
@@ -80,6 +127,9 @@ def main() -> int:
         ok = send_telegram(text)
         print(text)
         return 0 if ok else 1
+
+    if args.targets:
+        return run_targets(args.dry_run, args.force)
 
     if args.test_telegram:
         ok = send_telegram("✅ 주식 알림 봇 연결 테스트 성공!")
