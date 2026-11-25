@@ -5,6 +5,7 @@
   python main.py --dry-run     # 발송 없이 결과만 출력 (장 시간 무시)
   python main.py --test-telegram   # 텔레그램 연결 테스트 메시지 발송
   python main.py --targets     # 수동 목표가(매수/매도) 알림만 검사
+  python main.py --fear-greed  # CNN 공포·탐욕 지수 (뉴욕 10:30, 하루 1번)
 """
 from __future__ import annotations
 
@@ -101,6 +102,35 @@ def run_targets(dry_run: bool, force: bool) -> int:
     return 0
 
 
+def run_fear_greed(dry_run: bool, force: bool) -> int:
+    """CNN 공포·탐욕 지수를 정규장 시작 1시간 뒤 하루 한 번 발송."""
+    from alerts import feargreed as fg
+    from alerts.targets import load_json, save_json
+
+    ny_now = datetime.now(timezone.utc).astimezone(NY)
+    path = ROOT / "fng_state.json"
+    st = load_json(path, {})
+    if not (force or dry_run):
+        if not fg.due(ny_now, st.get("last_sent")):
+            log.info("공포·탐욕 지수 발송 시간이 아니거나 오늘 이미 보냈습니다. (뉴욕 %s)", ny_now.strftime("%a %H:%M"))
+            return 0
+        if not fg.market_traded_today(ny_now):
+            log.info("오늘은 미국 휴장일이라 보내지 않습니다.")
+            return 0
+
+    data = fg.fetch()
+    text = fg.format_message(data, ny_now)
+    print(text)
+    if dry_run:
+        return 0
+    if not send_telegram(text):
+        return 1
+    if not force:
+        st.update(last_sent=ny_now.date().isoformat(), score=data["score"])
+        save_json(path, st)
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default=str(ROOT / "config.yaml"))
@@ -110,6 +140,7 @@ def main() -> int:
     ap.add_argument("--refresh-universe", action="store_true", help="시총 순위 즉시 재계산")
     ap.add_argument("--test-telegram", action="store_true")
     ap.add_argument("--targets", action="store_true", help="수동 목표가(매수/매도) 알림만 검사")
+    ap.add_argument("--fear-greed", action="store_true", help="CNN 공포·탐욕 지수 알림")
     ap.add_argument("--demo-targets", action="store_true", help="목표가 알림 모양 미리보기 (테스트 메시지 발송)")
     ap.add_argument("--demo", metavar="TICKER:RSI", help="가상 RSI 값으로 알림 모양 미리보기 (예: SPCX:12)")
     args = ap.parse_args()
@@ -135,6 +166,9 @@ def main() -> int:
         ok = all(send_telegram("🧪 [테스트 알림 - 실제 신호 아님]\n\n" + format_signal(d)) for d in demos)
         print("발송 성공" if ok else "발송 실패")
         return 0 if ok else 1
+
+    if args.fear_greed:
+        return run_fear_greed(args.dry_run, args.force)
 
     if args.targets:
         return run_targets(args.dry_run, args.force)

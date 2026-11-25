@@ -42,6 +42,15 @@
 { "NVDA": { "name": "엔비디아", "buy": 120, "sell": 150 } }
 ```
 
+## 3. CNN 공포·탐욕 지수
+미국 정규장 시작 1시간 뒤(뉴욕 10:30 = 한국 밤 11:30, 서머타임 땐 밤 10:30)에 하루 한 번
+[CNN Fear & Greed Index](https://edition.cnn.com/markets/fear-and-greed) 값을 텔레그램으로 보냅니다.
+
+- 현재 값과 단계(극단적 공포·공포·중립·탐욕·극단적 탐욕), 전일·1주·1개월·1년 전과 비교
+- 주말과 미국 휴장일에는 보내지 않습니다. GitHub 실행이 늦어지면 몇 분~수십 분 늦게 올 수 있습니다.
+- 실행: `.github/workflows/feargreed.yml` · 상태: `fng_state.json`
+- 지금 바로 받아보기: Actions → fear-greed → Run workflow (force)
+
 ## 로컬 실행
 ```bash
 pip install -r requirements.txt
