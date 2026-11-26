@@ -1,1 +1,13 @@
-{}
+{
+  "NVDA": {
+    "buy": {
+      "level": 150.0,
+      "fired": true
+    },
+    "sell": {
+      "level": 200.0,
+      "fired": false
+    }
+  },
+  "_missing": []
+}
