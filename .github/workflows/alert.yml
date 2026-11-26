@@ -5,13 +5,14 @@ on:
     # 평일 UTC 13~21시 매 30분 (= 한국시간 밤 10시~새벽 6시대).
     # 실제 정규장 여부는 main.py 가 뉴욕 시간으로 다시 확인합니다. (서머타임 자동 대응)
     - cron: "*/30 13-21 * * 1-5"
+  # auto = 외부 예약(cron-job.org)이 보내는 일반 실행. 예약 실행과 똑같이 동작합니다.
   workflow_dispatch:        # Actions 탭에서 수동 실행 버튼
     inputs:
       mode:
         description: "실행 모드"
         type: choice
         default: test-telegram
-        options: [test-telegram, dry-run, force, demo]
+        options: [test-telegram, dry-run, force, demo, auto]
       demo:
         description: "demo 모드용 가상 값 (티커:RSI)"
         type: string

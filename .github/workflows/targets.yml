@@ -6,13 +6,14 @@ on:
     # 평일 UTC 13~21시 매 5분. 정규장 여부는 main.py 가 뉴욕 시간으로 다시 확인합니다.
     # (GitHub 사정에 따라 실제 실행은 몇 분씩 늦어질 수 있습니다)
     - cron: "*/5 13-21 * * 1-5"
+  # auto = 외부 예약(cron-job.org)이 보내는 일반 실행. 예약 실행과 똑같이 동작합니다.
   workflow_dispatch:
     inputs:
       mode:
         description: "실행 모드"
         type: choice
         default: force
-        options: [force, dry-run, demo]
+        options: [force, dry-run, demo, auto]
 
 permissions:
   contents: write

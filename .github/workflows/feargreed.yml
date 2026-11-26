@@ -6,13 +6,14 @@ name: fear-greed
 on:
   schedule:
     - cron: "*/10 14-16 * * 1-5"
+  # auto = 외부 예약(cron-job.org)이 보내는 일반 실행. 예약 실행과 똑같이 동작합니다.
   workflow_dispatch:
     inputs:
       mode:
         description: "실행 모드 (force = 지금 바로 한 번 보내기)"
         type: choice
         default: force
-        options: [force, dry-run]
+        options: [force, dry-run, auto]
 
 permissions:
   contents: write
